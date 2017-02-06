@@ -126,6 +126,10 @@ impl<A, S> Service for AfterService<A, S> where
     }
 }
 
+/*
+
+// These four impls are all incoherent with one another, and require mutual exclusion.
+
 impl<S, M1, M2> Middleware<S> for MiddlewareChain<S, M1, M2> where
     S: Service,
     M1: Middleware<S>,
@@ -179,3 +183,4 @@ impl<A, S> Middleware<S> for A where
         }
     }
 }
+*/

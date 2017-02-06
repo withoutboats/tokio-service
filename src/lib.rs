@@ -159,6 +159,13 @@ pub trait Service {
 
     /// Process the request and return the response asynchronously.
     fn call(&self, req: Self::Request) -> Self::Future;
+
+    fn wrap<M>(self, middleware: M) -> M::WrappedService where
+        M: Middleware<Self>,
+        Self: Sized,
+    {
+        middleware.wrap(self)
+    }
 }
 
 /// Creates new `Service` values.
