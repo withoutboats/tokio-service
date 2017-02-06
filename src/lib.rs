@@ -5,7 +5,7 @@
 //!
 //! [the trait]: trait.Service.html
 
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tokio-service/0.1")]
 
 extern crate futures;
@@ -15,6 +15,10 @@ use futures::Future;
 use std::io;
 use std::rc::Rc;
 use std::sync::Arc;
+
+pub mod middleware;
+
+pub use self::middleware::{Middleware, Before, After, Around};
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
