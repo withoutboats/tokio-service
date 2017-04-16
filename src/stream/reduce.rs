@@ -1,7 +1,5 @@
-use std::io;
-
-use {Middleware, NewMiddleware, Service, NewService};
-use stream::{StreamService, NewStreamService};
+use {Middleware, Service};
+use stream::StreamService;
 
 pub trait StreamReduce<S: StreamService> {
     type ReducedService: Service;
@@ -33,71 +31,5 @@ impl<S, R, M> StreamReduce<S> for StreamReduceMiddlewareChain<R, M>
 
     fn reduce(self, service: S) -> Self::ReducedService {
         service.reduce(self.reducer).wrap(self.middleware)
-    }
-}
-
-pub trait NewStreamReduce<S: StreamService> {
-    type ReducedService: Service;
-    type Instance: StreamReduce<S, ReducedService = Self::ReducedService>;
-
-    fn new_reducer(&self) -> io::Result<Self::Instance>;
-
-    fn reduce<N>(self, new_service: N) -> NewStreamServiceReducer<Self, N>
-        where N: NewStreamService<Instance = S, Request = S::Request, Response = S::Response, Error = S::Error>,
-              Self: Sized,
-    {
-        NewStreamServiceReducer {
-            service: new_service,
-            reducer: self,
-        }
-    }
-
-    fn chain<M>(self, new_middleware: M) -> NewStreamReduceMiddlewareChain<Self, M>
-        where M: NewMiddleware<Self::ReducedService>,
-              Self: Sized,
-    {
-        NewStreamReduceMiddlewareChain {
-            reducer: self,
-            middleware: new_middleware,
-        }
-    }
-}
-
-pub struct NewStreamServiceReducer<R: NewStreamReduce<S::Instance>, S: NewStreamService> {
-    service: S,
-    reducer: R,
-}
-
-impl<R, S, W> NewService for NewStreamServiceReducer<R, S>
-    where S: NewStreamService,
-          R: NewStreamReduce<S::Instance, ReducedService = W>,
-          W: Service,
-{
-    type Request = W::Request;
-    type Response = W::Response;
-    type Error = W::Error;
-    type Instance = W;
-
-    fn new_service(&self) -> io::Result<Self::Instance> {
-        Ok(self.service.new_service()?.reduce(self.reducer.new_reducer()?))
-    }
-}
-
-pub struct NewStreamReduceMiddlewareChain<R, M> {
-    reducer: R,
-    middleware: M,
-}
-
-impl<S, R, M> NewStreamReduce<S> for NewStreamReduceMiddlewareChain<R, M>
-where
-    S: StreamService,
-    R: NewStreamReduce<S>,
-    M: NewMiddleware<R::ReducedService>,
-{
-    type ReducedService = M::WrappedService;
-    type Instance = StreamReduceMiddlewareChain<R::Instance, M::Instance>;
-
-    fn new_reducer(&self) -> io::Result<Self::Instance> {
-        Ok(self.reducer.new_reducer()?.chain(self.middleware.new_middleware()?))
     }
 }

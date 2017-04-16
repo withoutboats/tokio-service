@@ -12,14 +12,18 @@ extern crate futures;
 
 use futures::Future;
 
-use std::io;
 use std::rc::Rc;
 use std::sync::Arc;
 
-mod middleware;
 pub mod stream;
 
+mod middleware;
+mod new_middleware;
+mod new_service;
+
 pub use self::middleware::*;
+pub use self::new_middleware::*;
+pub use self::new_service::*;
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
@@ -107,67 +111,6 @@ pub trait Service {
               Self: Sized,
     {
         middleware.wrap(self)
-    }
-}
-
-/// Creates new `Service` values.
-pub trait NewService {
-    /// Requests handled by the service
-    type Request;
-
-    /// Responses given by the service
-    type Response;
-
-    /// Errors produced by the service
-    type Error;
-
-    /// The `Service` value created by this factory
-    type Instance: Service<Request = Self::Request, Response = Self::Response, Error = Self::Error>;
-
-    /// Create and return a new service value.
-    fn new_service(&self) -> io::Result<Self::Instance>;
-
-    fn wrap<M>(self, new_middleware: M) -> NewServiceWrapper<M, Self>
-        where M: NewMiddleware<Self::Instance>,
-              Self: Sized,
-    {
-        new_middleware.wrap(self)
-    }
-}
-
-impl<F, R> NewService for F
-    where F: Fn() -> io::Result<R>,
-          R: Service,
-{
-    type Request = R::Request;
-    type Response = R::Response;
-    type Error = R::Error;
-    type Instance = R;
-
-    fn new_service(&self) -> io::Result<R> {
-        (*self)()
-    }
-}
-
-impl<S: NewService + ?Sized> NewService for Arc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Instance = S::Instance;
-
-    fn new_service(&self) -> io::Result<S::Instance> {
-        (**self).new_service()
-    }
-}
-
-impl<S: NewService + ?Sized> NewService for Rc<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Instance = S::Instance;
-
-    fn new_service(&self) -> io::Result<S::Instance> {
-        (**self).new_service()
     }
 }
 

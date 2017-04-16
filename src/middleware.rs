@@ -1,6 +1,4 @@
-use std::io;
-
-use {Service, NewService};
+use Service;
 
 /// Often, many of the pieces needed for writing network applications
 /// can be reused across multiple services. The `Middleware` trait can
@@ -128,70 +126,5 @@ impl<S, InnerM, OuterM> Middleware<S> for MiddlewareChain<InnerM, OuterM>
 
     fn wrap(self, service: S) -> Self::WrappedService {
         service.wrap(self.inner_middleware).wrap(self.outer_middleware)
-    }
-}
-
-pub trait NewMiddleware<S: Service> {
-    type WrappedService: Service;
-    type Instance: Middleware<S, WrappedService = Self::WrappedService>;
-
-    fn new_middleware(&self) -> io::Result<Self::Instance>;
-
-    fn wrap<N>(self, new_service: N) -> NewServiceWrapper<Self, N>
-        where N: NewService<Instance = S, Request = S::Request, Response = S::Response, Error = S::Error>,
-              Self: Sized,
-    {
-        NewServiceWrapper {
-            service: new_service,
-            middleware: self,
-        }
-    }
-
-    fn chain<M>(self, new_middleware: M) -> NewMiddlewareChain<Self, M>
-        where M: NewMiddleware<Self::WrappedService>,
-              Self: Sized,
-    {
-        NewMiddlewareChain {
-            inner_middleware: self,
-            outer_middleware: new_middleware,
-        }
-    }
-}
-
-pub struct NewServiceWrapper<M: NewMiddleware<S::Instance>, S: NewService> {
-    service: S,
-    middleware: M,
-}
-
-impl<M, S, W> NewService for NewServiceWrapper<M, S>
-    where S: NewService,
-          M: NewMiddleware<S::Instance, WrappedService = W>,
-          W: Service,
-{
-    type Request = W::Request;
-    type Response = W::Response;
-    type Error = W::Error;
-    type Instance = W;
-
-    fn new_service(&self) -> io::Result<Self::Instance> {
-        Ok(self.service.new_service()?.wrap(self.middleware.new_middleware()?))
-    }
-}
-
-pub struct NewMiddlewareChain<InnerM, OuterM> {
-    inner_middleware: InnerM,
-    outer_middleware: OuterM,
-}
-
-impl<S, InnerM, OuterM> NewMiddleware<S> for NewMiddlewareChain<InnerM, OuterM>
-    where S: Service,
-          InnerM: NewMiddleware<S>,
-          OuterM: NewMiddleware<InnerM::WrappedService>,
-{
-    type Instance = MiddlewareChain<InnerM::Instance, OuterM::Instance>;
-    type WrappedService = OuterM::WrappedService;
-
-    fn new_middleware(&self) -> io::Result<Self::Instance> {
-        Ok(self.inner_middleware.new_middleware()?.chain(self.outer_middleware.new_middleware()?))
     }
 }
