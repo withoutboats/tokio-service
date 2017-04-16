@@ -5,7 +5,7 @@ use futures::Future;
 use {Service, NewService};
 use stream::{StreamService, NewStreamService};
 
-pub trait Call<Kind> {
+pub trait Call<Kind: 'static> {
     type Request;
     type Response;
     type Error;
@@ -39,7 +39,7 @@ impl<T: StreamService> Call<Streaming> for T {
     }
 }
 
-pub trait Connect<Kind, H> {
+pub trait Connect<Kind: 'static, H> {
     type Request;
     type Response;
     type Error;
