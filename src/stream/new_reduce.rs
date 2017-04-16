@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use futures::{Future, Poll, Async};
 
-use *;
+use service::*;
 use stream::*;
 
 pub trait NewStreamReduce<S: StreamService> {

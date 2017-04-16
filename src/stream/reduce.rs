@@ -1,4 +1,5 @@
-use {Middleware, Service};
+use Service;
+use service::Middleware;
 use stream::StreamService;
 
 pub trait StreamReduce<S: StreamService> {

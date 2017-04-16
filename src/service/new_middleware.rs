@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use futures::{Future, Poll, Async};
 
 use {Service, NewService};
-use middleware::*;
+use service::middleware::*;
 
 pub trait NewMiddleware<S: Service> {
     type WrappedService: Service;

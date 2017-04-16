@@ -1,12 +1,12 @@
 mod middleware;
-mod new_stream_service;
+mod new_service;
 mod new_reduce;
 mod new_middleware;
 mod reduce;
 
 pub use self::middleware::*;
 pub use self::new_middleware::*;
-pub use self::new_stream_service::*;
+pub use self::new_service::*;
 pub use self::new_reduce::*;
 pub use self::reduce::*;
 

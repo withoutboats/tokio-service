@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures::{Future, IntoFuture};
 
 use Service;
-use new_middleware::*;
+use service::new_middleware::*;
 
 /// Creates new `Service` values.
 pub trait NewService<H> {
