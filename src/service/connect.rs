@@ -8,7 +8,7 @@ use Service;
 use middleware::*;
 
 /// Creates new `Service` values.
-pub trait NewService<H> {
+pub trait Connect<H> {
     /// Requests handled by the service
     type Request;
 
@@ -24,17 +24,17 @@ pub trait NewService<H> {
     type Future: Future<Item = Self::Instance, Error = io::Error>;
 
     /// Create and return a new service value.
-    fn new_service(&self, handle: &H) -> Self::Future;
+    fn connect(&self, handle: &H) -> Self::Future;
 
-    fn wrap<M>(self, new_middleware: M) -> NewServiceWrapper<M, Self, H>
-        where M: NewMiddleware<Self::Instance, H>,
+    fn wrap<M>(self, new_middleware: M) -> ConnectWrapper<M, Self, H>
+        where M: ConnectMiddleware<Self::Instance, H>,
               Self: Sized,
     {
         new_middleware.wrap(self)
     }
 }
 
-impl<F, R, H, I> NewService<H> for F
+impl<F, R, H, I> Connect<H> for F
     where F: Fn(&H) -> I,
           I: IntoFuture<Item = R, Error = io::Error>,
           R: Service,
@@ -45,31 +45,31 @@ impl<F, R, H, I> NewService<H> for F
     type Instance = R;
     type Future = I::Future;
 
-    fn new_service(&self, handle: &H) -> I::Future {
+    fn connect(&self, handle: &H) -> I::Future {
         (*self)(handle).into_future()
     }
 }
 
-impl<S: NewService<H> + ?Sized, H> NewService<H> for Arc<S> {
+impl<S: Connect<H> + ?Sized, H> Connect<H> for Arc<S> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
     type Future = S::Future;
 
-    fn new_service(&self, handle: &H) -> Self::Future {
-        (**self).new_service(handle)
+    fn connect(&self, handle: &H) -> Self::Future {
+        (**self).connect(handle)
     }
 }
 
-impl<S: NewService<H> + ?Sized, H> NewService<H> for Rc<S> {
+impl<S: Connect<H> + ?Sized, H> Connect<H> for Rc<S> {
     type Request = S::Request;
     type Response = S::Response;
     type Error = S::Error;
     type Instance = S::Instance;
     type Future = S::Future;
 
-    fn new_service(&self, handle: &H) -> Self::Future {
-        (**self).new_service(handle)
+    fn connect(&self, handle: &H) -> Self::Future {
+        (**self).connect(handle)
     }
 }

@@ -3,47 +3,47 @@ use std::marker::PhantomData;
 
 use futures::{Future, Poll, Async};
 
-use service::{Service, NewService};
+use service::{Service, Connect};
 use middleware::*;
 
-pub trait NewMiddleware<S: Service, H> {
+pub trait ConnectMiddleware<S: Service, H> {
     type WrappedService: Service;
     type Instance: Middleware<S, WrappedService = Self::WrappedService>;
     type Future: Future<Item = Self::Instance, Error = io::Error>;
 
-    fn new_middleware(&self, handle: &H) -> Self::Future;
+    fn connect(&self, handle: &H) -> Self::Future;
 
-    fn wrap<N>(self, new_service: N) -> NewServiceWrapper<Self, N, H>
-        where N: NewService<H, Instance = S, Request = S::Request, Response = S::Response, Error = S::Error>,
+    fn wrap<N>(self, new_service: N) -> ConnectWrapper<Self, N, H>
+        where N: Connect<H, Instance = S, Request = S::Request, Response = S::Response, Error = S::Error>,
               Self: Sized,
     {
-        NewServiceWrapper {
+        ConnectWrapper {
             service: new_service,
             middleware: self,
             _marker: PhantomData,
         }
     }
 
-    fn chain<M>(self, new_middleware: M) -> NewMiddlewareChain<Self, M>
-        where M: NewMiddleware<Self::WrappedService, H>,
+    fn chain<M>(self, new_middleware: M) -> ConnectMiddlewareChain<Self, M>
+        where M: ConnectMiddleware<Self::WrappedService, H>,
               Self: Sized,
     {
-        NewMiddlewareChain {
+        ConnectMiddlewareChain {
             inner_middleware: self,
             outer_middleware: new_middleware,
         }
     }
 }
 
-pub struct NewServiceWrapper<M: NewMiddleware<S::Instance, H>, S: NewService<H>, H> {
+pub struct ConnectWrapper<M: ConnectMiddleware<S::Instance, H>, S: Connect<H>, H> {
     service: S,
     middleware: M,
     _marker: PhantomData<H>,
 }
 
-impl<M, S, W, H> NewService<H> for NewServiceWrapper<M, S, H>
-    where S: NewService<H>,
-          M: NewMiddleware<S::Instance, H, WrappedService = W>,
+impl<M, S, W, H> Connect<H> for ConnectWrapper<M, S, H>
+    where S: Connect<H>,
+          M: ConnectMiddleware<S::Instance, H, WrappedService = W>,
           W: Service,
 {
     type Request = W::Request;
@@ -52,10 +52,10 @@ impl<M, S, W, H> NewService<H> for NewServiceWrapper<M, S, H>
     type Instance = W;
     type Future = WrappedServiceFuture<S::Future, M::Future>;
 
-    fn new_service(&self, handle: &H) -> Self::Future {
+    fn connect(&self, handle: &H) -> Self::Future {
         WrappedServiceFuture {
-            service_future: self.service.new_service(handle),
-            middleware_future: self.middleware.new_middleware(handle),
+            service_future: self.service.connect(handle),
+            middleware_future: self.middleware.connect(handle),
             service: None,
         }
     }
@@ -92,24 +92,24 @@ impl<S, M> Future for WrappedServiceFuture<S, M>
     }
 }
 
-pub struct NewMiddlewareChain<InnerM, OuterM> {
+pub struct ConnectMiddlewareChain<InnerM, OuterM> {
     inner_middleware: InnerM,
     outer_middleware: OuterM,
 }
 
-impl<S, InnerM, OuterM, H> NewMiddleware<S, H> for NewMiddlewareChain<InnerM, OuterM>
+impl<S, InnerM, OuterM, H> ConnectMiddleware<S, H> for ConnectMiddlewareChain<InnerM, OuterM>
     where S: Service,
-          InnerM: NewMiddleware<S, H>,
-          OuterM: NewMiddleware<InnerM::WrappedService, H>,
+          InnerM: ConnectMiddleware<S, H>,
+          OuterM: ConnectMiddleware<InnerM::WrappedService, H>,
 {
     type Instance = MiddlewareChain<InnerM::Instance, OuterM::Instance>;
     type WrappedService = OuterM::WrappedService;
     type Future = ChainedMiddlewareFuture<InnerM::Future, OuterM::Future, S>;
 
-    fn new_middleware(&self, handle: &H) -> Self::Future {
+    fn connect(&self, handle: &H) -> Self::Future {
         ChainedMiddlewareFuture {
-            inner_future: self.inner_middleware.new_middleware(handle),
-            outer_future: self.outer_middleware.new_middleware(handle),
+            inner_future: self.inner_middleware.connect(handle),
+            outer_future: self.outer_middleware.connect(handle),
             inner: None,
             _marker: PhantomData,
         }

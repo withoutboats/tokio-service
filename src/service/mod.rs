@@ -3,10 +3,10 @@ use futures::Future;
 use std::rc::Rc;
 use std::sync::Arc;
 
-mod new_service;
+mod connect;
 
 use middleware::*;
-pub use self::new_service::*;
+pub use self::connect::*;
 
 /// An asynchronous function from `Request` to a `Response`.
 ///
