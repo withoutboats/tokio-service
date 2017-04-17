@@ -1,4 +1,8 @@
-use Service;
+use service::Service;
+
+mod new_middleware;
+
+pub use self::new_middleware::*;
 
 /// Often, many of the pieces needed for writing network applications
 /// can be reused across multiple services. The `Middleware` trait can

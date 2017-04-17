@@ -3,17 +3,17 @@ use std::marker::PhantomData;
 
 use futures::{Future, Poll, Async};
 
-use {Service, NewService};
-use service::middleware::*;
+use service::{Service, NewService};
+use middleware::*;
 
-pub trait NewMiddleware<S: Service> {
+pub trait NewMiddleware<S: Service, H> {
     type WrappedService: Service;
     type Instance: Middleware<S, WrappedService = Self::WrappedService>;
     type Future: Future<Item = Self::Instance, Error = io::Error>;
 
-    fn new_middleware(&self) -> Self::Future;
+    fn new_middleware(&self, handle: &H) -> Self::Future;
 
-    fn wrap<N, H>(self, new_service: N) -> NewServiceWrapper<Self, N, H>
+    fn wrap<N>(self, new_service: N) -> NewServiceWrapper<Self, N, H>
         where N: NewService<H, Instance = S, Request = S::Request, Response = S::Response, Error = S::Error>,
               Self: Sized,
     {
@@ -25,7 +25,7 @@ pub trait NewMiddleware<S: Service> {
     }
 
     fn chain<M>(self, new_middleware: M) -> NewMiddlewareChain<Self, M>
-        where M: NewMiddleware<Self::WrappedService>,
+        where M: NewMiddleware<Self::WrappedService, H>,
               Self: Sized,
     {
         NewMiddlewareChain {
@@ -35,7 +35,7 @@ pub trait NewMiddleware<S: Service> {
     }
 }
 
-pub struct NewServiceWrapper<M: NewMiddleware<S::Instance>, S: NewService<H>, H> {
+pub struct NewServiceWrapper<M: NewMiddleware<S::Instance, H>, S: NewService<H>, H> {
     service: S,
     middleware: M,
     _marker: PhantomData<H>,
@@ -43,7 +43,7 @@ pub struct NewServiceWrapper<M: NewMiddleware<S::Instance>, S: NewService<H>, H>
 
 impl<M, S, W, H> NewService<H> for NewServiceWrapper<M, S, H>
     where S: NewService<H>,
-          M: NewMiddleware<S::Instance, WrappedService = W>,
+          M: NewMiddleware<S::Instance, H, WrappedService = W>,
           W: Service,
 {
     type Request = W::Request;
@@ -55,7 +55,7 @@ impl<M, S, W, H> NewService<H> for NewServiceWrapper<M, S, H>
     fn new_service(&self, handle: &H) -> Self::Future {
         WrappedServiceFuture {
             service_future: self.service.new_service(handle),
-            middleware_future: self.middleware.new_middleware(),
+            middleware_future: self.middleware.new_middleware(handle),
             service: None,
         }
     }
@@ -97,19 +97,19 @@ pub struct NewMiddlewareChain<InnerM, OuterM> {
     outer_middleware: OuterM,
 }
 
-impl<S, InnerM, OuterM> NewMiddleware<S> for NewMiddlewareChain<InnerM, OuterM>
+impl<S, InnerM, OuterM, H> NewMiddleware<S, H> for NewMiddlewareChain<InnerM, OuterM>
     where S: Service,
-          InnerM: NewMiddleware<S>,
-          OuterM: NewMiddleware<InnerM::WrappedService>,
+          InnerM: NewMiddleware<S, H>,
+          OuterM: NewMiddleware<InnerM::WrappedService, H>,
 {
     type Instance = MiddlewareChain<InnerM::Instance, OuterM::Instance>;
     type WrappedService = OuterM::WrappedService;
     type Future = ChainedMiddlewareFuture<InnerM::Future, OuterM::Future, S>;
 
-    fn new_middleware(&self) -> Self::Future {
+    fn new_middleware(&self, handle: &H) -> Self::Future {
         ChainedMiddlewareFuture {
-            inner_future: self.inner_middleware.new_middleware(),
-            outer_future: self.outer_middleware.new_middleware(),
+            inner_future: self.inner_middleware.new_middleware(handle),
+            outer_future: self.outer_middleware.new_middleware(handle),
             inner: None,
             _marker: PhantomData,
         }

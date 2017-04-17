@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures::{Future, IntoFuture};
 
 use Service;
-use service::new_middleware::*;
+use middleware::*;
 
 /// Creates new `Service` values.
 pub trait NewService<H> {
@@ -27,7 +27,7 @@ pub trait NewService<H> {
     fn new_service(&self, handle: &H) -> Self::Future;
 
     fn wrap<M>(self, new_middleware: M) -> NewServiceWrapper<M, Self, H>
-        where M: NewMiddleware<Self::Instance>,
+        where M: NewMiddleware<Self::Instance, H>,
               Self: Sized,
     {
         new_middleware.wrap(self)

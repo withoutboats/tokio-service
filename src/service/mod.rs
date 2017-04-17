@@ -3,12 +3,9 @@ use futures::Future;
 use std::rc::Rc;
 use std::sync::Arc;
 
-mod middleware;
-mod new_middleware;
 mod new_service;
 
-pub use self::middleware::*;
-pub use self::new_middleware::*;
+use middleware::*;
 pub use self::new_service::*;
 
 /// An asynchronous function from `Request` to a `Response`.
@@ -97,17 +94,6 @@ pub trait Service {
               Self: Sized,
     {
         middleware.wrap(self)
-    }
-}
-
-impl<S: Service + ?Sized> Service for Box<S> {
-    type Request = S::Request;
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn call(&self, request: S::Request) -> S::Future {
-        (**self).call(request)
     }
 }
 

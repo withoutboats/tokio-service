@@ -9,9 +9,10 @@
 #![doc(html_root_url = "https://docs.rs/tokio-service/0.1")]
 
 extern crate futures;
-pub mod service;
-pub mod stream;
 
-pub use service::{Service, NewService};
+pub mod middleware;
+pub mod streaming;
 
-pub mod call;
+mod service;
+
+pub use service::*;
